@@ -180,23 +180,24 @@ Available choices:
 
 ```text
 1. Current directory
-2. Choose existing folder in current directory
-3. Create new folder in current directory
+2. Browse for existing folder
+3. Enter existing folder path
 q. Quit
 ```
 
 Behavior:
 
 - `Current directory` writes files directly into the directory where you launched the exporter
-- `Choose existing folder` lists subdirectories in the current working directory and lets you pick one
-- `Create new folder` creates a new directory inside the current working directory and writes files there
+- `Browse for existing folder` lets you navigate into subfolders and up to parent folders until you reach the destination you want to use
+- `Enter existing folder path` accepts either a relative path such as `../tarushsinha.github.io/public/content/articles` or an absolute path such as `/Users/tarushsinha/Documents/tarushsinha.github.io/public/content/articles`
 - entering `q` aborts cleanly without exporting anything
 
 Constraints:
 
-- destination selection is scoped to the current working directory
-- new folder creation accepts a folder name only, not a path
-- if the requested folder already exists and is a directory, it can be used
+- the selected destination must already exist
+- the selected destination must be a directory
+- relative paths are resolved from the current working directory
+- the exporter will not create a new output directory
 - if no valid destination is selected, the exporter does nothing
 
 ## Output Behavior

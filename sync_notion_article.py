@@ -10,7 +10,7 @@ Interactive Notion -> Jekyll article exporter
     a. Generate slug from article title
     b. Use sync date as article date
     c. Convert Notion article into Markdown
-    d. Writes _articles/<slug>.md with YAML front matter
+    d. Writes <selected output directory>/<slug>.md with YAML front matter
 """
 
 import os
@@ -562,61 +562,87 @@ def prompt_for_article_selection(articles):
 def list_subdirectories(base_dir: Path):
     return sorted([path for path in base_dir.iterdir() if path.is_dir()], key=lambda path: path.name.lower())
 
-def prompt_for_existing_directory(base_dir: Path):
-    directories = list_subdirectories(base_dir)
-    if not directories:
-        print("No subdirectories found in the current working directory.")
+def resolve_existing_directory_input(raw_path: str, base_dir: Path):
+    candidate = Path(raw_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = base_dir / candidate
+
+    candidate = candidate.resolve()
+
+    if not candidate.exists():
+        print(f"'{candidate}' does not exist. Select a folder that already exists.")
         return None
 
+    if not candidate.is_dir():
+        print(f"'{candidate}' is not a directory. Select a folder that already exists.")
+        return None
+
+    return candidate
+
+def prompt_for_existing_directory(base_dir: Path):
+    current_dir = base_dir.resolve()
     while True:
-        print("\nFolders in current directory:\n")
+        directories = list_subdirectories(current_dir)
+
+        print(f"\nCurrent folder:\n{current_dir}\n")
+        print("0. Use this folder")
+        if current_dir.parent != current_dir:
+            print("u. Go to parent folder")
+
+        if directories:
+            print("\nSubfolders:\n")
         for idx, directory in enumerate(directories, start=1):
             print(f"{idx}. {directory.name}")
+        if not directories:
+            print("No subfolders found here.")
 
-        choice = input("\nEnter folder number to use, or 'b' to go back: ").strip()
+        choice = input(
+            "\nEnter a folder number to open, '0' to use the current folder, "
+            "'u' to go up, or 'b' to go back: "
+        ).strip()
         if choice.lower() == "b":
             return None
+        if choice == "0":
+            return current_dir
+        if choice.lower() == "u":
+            if current_dir.parent == current_dir:
+                print("Already at the filesystem root.")
+                continue
+            current_dir = current_dir.parent
+            continue
 
         try:
             index = int(choice) - 1
             assert 0 <= index < len(directories)
         except (ValueError, AssertionError):
-            print("Invalid selection. Enter one of the listed folder numbers or 'b' to go back.")
+            print("Invalid selection. Enter one of the listed folder numbers, '0', 'u', or 'b'.")
             continue
 
-        return directories[index]
+        current_dir = directories[index]
 
-def prompt_for_new_directory(base_dir: Path):
+def prompt_for_directory_path(base_dir: Path):
     while True:
-        folder_name = input("\nEnter new folder name, or 'b' to go back: ").strip()
-        if folder_name.lower() == "b":
+        raw_path = input(
+            "\nEnter an existing folder path (relative or absolute), or 'b' to go back: "
+        ).strip()
+        if raw_path.lower() == "b":
             return None
-
-        if not folder_name:
-            print("Folder name cannot be empty.")
+        if not raw_path:
+            print("Path cannot be empty.")
             continue
 
-        folder_path = Path(folder_name)
-        if folder_path.is_absolute() or folder_path.name != folder_name or folder_name in {".", ".."}:
-            print("Enter a single folder name only, not a path.")
-            continue
-
-        destination = base_dir / folder_name
-        if destination.exists() and not destination.is_dir():
-            print(f"'{folder_name}' already exists and is not a directory.")
-            continue
-
-        destination.mkdir(parents=False, exist_ok=True)
-        return destination
+        destination = resolve_existing_directory_input(raw_path, base_dir)
+        if destination is not None:
+            return destination
 
 def prompt_for_output_directory():
-    base_dir = Path.cwd()
+    base_dir = Path.cwd().resolve()
 
     while True:
         print("\nChoose output location:")
         print("1. Current directory")
-        print("2. Choose existing folder in current directory")
-        print("3. Create new folder in current directory")
+        print("2. Browse for existing folder")
+        print("3. Enter existing folder path")
         print("q. Quit")
 
         choice = input("\nSelect an option: ").strip().lower()
@@ -632,7 +658,7 @@ def prompt_for_output_directory():
                 return selected_dir
             continue
         if choice == "3":
-            selected_dir = prompt_for_new_directory(base_dir)
+            selected_dir = prompt_for_directory_path(base_dir)
             if selected_dir is not None:
                 return selected_dir
             continue
